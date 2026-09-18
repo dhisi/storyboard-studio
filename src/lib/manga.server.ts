@@ -1924,7 +1924,15 @@ export function composeImagePrompt(
   continuity?: string,
 ): string {
   bible = bible ? normalizeLeadCharacter(bible) : bible;
-  const clean = stripPromptMeta(dedupeWords(prompt));
+  // The set sheet travels at the END of the written prompt, where the scene
+  // trimming below would have thrown it away — which is exactly why panels of
+  // one continuing scene kept coming back in a different room. Lift it out
+  // first and re-attach it as reserved, never-trimmed text.
+  const lockSplit = prompt.search(/LOCATION LOCK\b/i);
+  const carriedLock = lockSplit >= 0 ? prompt.slice(lockSplit).trim().replace(/^\W+/, "") : "";
+  const promptBody = lockSplit >= 0 ? prompt.slice(0, lockSplit).replace(/[\s,.;-]+$/, "") : prompt;
+  const clean = stripPromptMeta(dedupeWords(promptBody));
+
   const withCast = enforceLineCast(clean, line, bible);
   const fixed = collapseRepeatedIdentity(
     stripPromptMeta(enforceGender(sanitizePrompt(withCast), bible)),
