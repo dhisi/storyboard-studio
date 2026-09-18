@@ -1047,8 +1047,9 @@ function lockClause(name: string, details: string): string {
 function isAbsentMention(text: string, name: string): boolean {
   const escaped = escapeRe(name);
   return new RegExp(
-    `(?:${escaped}[^.!?]{0,90}(?:missing|absent|gone|vanished|disappeared|empty place|empty floor)|` +
-      `(?:missing|absent|gone|vanished|disappeared|empty place|empty floor)[^.!?]{0,90}${escaped})`,
+    `(?:${escaped}[^.!?]{0,24}(?:is |has |had )?(?:missing|absent|gone|vanished|disappeared)|` +
+      `(?:missing|absent|gone|vanished|disappeared)[^.!?]{0,24}${escaped}|` +
+      `empty (?:place|floor|space)[^.!?]{0,24}(?:where )?${escaped})`,
     "i",
   ).test(text);
 }
