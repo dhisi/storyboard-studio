@@ -2002,7 +2002,6 @@ export function composeImagePrompt(
     `${STYLE_LEAD} ${placeLead}${beat.lead}`,
     restText,
     identity,
-    setLock,
     continuity ? clip(`continue the same action and spatial positions from the previous picture: ${continuity}`, 140) : "",
     peopled ? STAGING_GUARD : "",
     peopled ? FRAMING_GUARD : "",
@@ -2011,10 +2010,10 @@ export function composeImagePrompt(
   ].filter(Boolean);
 
 
-  const tail = `${STYLE_TAIL}. ${SINGLE_FRAME_GUARD}`;
-  // The style is never allowed to be trimmed away: the scene is clipped to
-  // whatever room is left AFTER the fixed look is reserved, then the look is
-  // appended. Every picture in a story therefore ends on the same words.
+  // The set sheet and the fixed look are BOTH reserved: neither may ever be
+  // trimmed away, because a trimmed set sheet is a redrawn room and a trimmed
+  // look is a panel in a different art style from its neighbours.
+  const tail = `${setLock ? `${setLock}. ` : ""}${STYLE_TAIL}. ${SINGLE_FRAME_GUARD}`;
   const scene = clip(
     parts
       .join(". ")
@@ -2026,6 +2025,7 @@ export function composeImagePrompt(
 
   return `${scene}. ${tail}`;
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Quick size check                                                    */
