@@ -285,7 +285,9 @@ const PROMPT_SYSTEM =
   "- SCENE CONTINUITY: default to the same location, time and active cast as the previous line. Change them ONLY when " +
   "the current line explicitly names a different location/time/cast or clearly begins a flashback, memory, dream or " +
   "separate narrated event. Keep continuing actions spatially coherent: the same room layout, doors, furniture and " +
-  "character positions should remain recognisable while pose, expression and camera angle advance.\n" +
+  "character positions should remain recognisable while pose, expression and camera angle advance. People already in " +
+  "the room remain the SAME identifiable people in later wide shots unless the script says they leave, vanish or move " +
+  "off-screen; keep non-focal members naturally visible in the background rather than replacing them with strangers.\n" +
   "crowds, villagers, strangers or unnamed people show THOSE people — never insert a main character into them.\n" +
   "- CAST RESOLUTION: put every bible character named in the current line in frame. Also retain a bible character when " +
   "the current line uses a pronoun or continues that character's action from the preceding line. Write every resolved " +
@@ -330,7 +332,9 @@ const PROMPT_SYSTEM =
   "clearly FEMALE 8-year-old girl, small and round-faced'. Never make a young character look the same age as the " +
   "older one beside them, never age a child up or an elder down to match the other person, and never draw a male " +
   "character feminine (or a female one masculine) just because they share the frame with the opposite gender.\n" +
-  "- HEAD COUNT: state explicitly how many people are in frame and that nobody else is present.\n" +
+  "- HEAD COUNT: state the number of focal people and, when the established group is still present, separately state " +
+  "that the same continuing named people remain naturally visible in the background. Never replace a named person " +
+  "with a generic student, assistant or stranger.\n" +
   "- FIGHTING & MAGIC (critical): these stories are action fantasy. Whenever the line contains combat, a technique, a " +
   "spell, an awakening, a transformation, a curse, an aura, a summon, a beast, a weapon clash or any supernatural " +
   "ability, the prompt MUST describe it as visible drawable energy and motion: the exact stance and mid-motion body " +
@@ -1039,6 +1043,52 @@ function lockClause(name: string, details: string): string {
   );
 }
 
+/** A named person can be discussed while explicitly absent from the picture. */
+function isAbsentMention(text: string, name: string): boolean {
+  const escaped = escapeRe(name);
+  return new RegExp(
+    `(?:${escaped}[^.!?]{0,90}(?:missing|absent|gone|vanished|disappeared|empty place|empty floor)|` +
+      `(?:missing|absent|gone|vanished|disappeared|empty place|empty floor)[^.!?]{0,90}${escaped})`,
+    "i",
+  ).test(text);
+}
+
+/** Named people visibly present, excluding someone discussed as missing. */
+function visibleBibleEntries(text: string, bible?: string): { name: string; traits: string }[] {
+  if (!bible) return [];
+  return parseBible(bible).filter(
+    (entry) =>
+      new RegExp(`\\b${escapeRe(entry.name)}\\b`, "i").test(text) &&
+      !isAbsentMention(text, entry.name),
+  );
+}
+
+/** Stable surrounding cast for a continuing scene, including the next few beats. */
+function groupLockFor(prompts: string[], index: number, bible?: string): string {
+  if (!bible) return "";
+  const currentPlace = detectSetting(prompts[index] ?? "");
+  const roster = new Map<string, { name: string; traits: string }>();
+  const from = Math.max(0, index - 3);
+  const to = Math.min(prompts.length - 1, index + 6);
+  for (let i = from; i <= to; i++) {
+    const candidate = prompts[i] ?? "";
+    const candidatePlace = detectSetting(candidate);
+    if (currentPlace && candidatePlace && candidatePlace !== currentPlace) continue;
+    for (const entry of visibleBibleEntries(candidate, bible)) {
+      roster.set(entry.name.toLocaleLowerCase(), entry);
+    }
+  }
+  const people = [...roster.values()].slice(0, 8);
+  if (people.length < 2) return "";
+  const brief = people
+    .map((entry) => `${entry.name} (${clip(dedupeWords(entry.traits.replace(/\.$/, "")), 58)})`)
+    .join("; ");
+  return (
+    `GROUP LOCK — the same recurring group remains naturally distributed through this continuing scene: ${brief}. ` +
+    `Keep these exact identities and outfits; foreground only the people performing this moment while the others remain recognisable in the background`
+  );
+}
+
 /**
  * Panel-to-panel setting continuity.
  *
@@ -1065,23 +1115,25 @@ export function chainContinuity(
     const place = matchingPlace(`${segment?.text ?? ""} ${prompt}`, bible);
     const sourceChangesPlace = segment ? PLACE_CUES.test(segment.text) : false;
     PLACE_CUES.lastIndex = 0;
+    const groupLock = groupLockFor(prompts, i, bible);
+    const withGroup = groupLock ? `${prompt}. ${groupLock}` : prompt;
     if (place && (active === null || sourceChangesPlace)) {
       active = detectSetting(`${place.name} ${place.details}`) ?? place.name;
       activeLock = place;
-      return `${prompt}. ${lockClause(place.name, place.details)}`;
+      return `${withGroup}. ${lockClause(place.name, place.details)}`;
     }
     if (here && (active === null || sourceChangesPlace)) {
       // The writer named a place for THIS timestamp; it is never overwritten
       // with an earlier panel's location.
       active = here;
       activeLock = { name: here, details: setSheetFor(here, storyKey) };
-      return `${prompt}. ${lockClause(activeLock.name, activeLock.details)}`;
+      return `${withGroup}. ${lockClause(activeLock.name, activeLock.details)}`;
     }
-    if (!active) return prompt;
+    if (!active) return withGroup;
     // A prompt with no place of its own inherits the running location, restated
     // with the very same concrete sheet as the panel that established it.
     const lock = activeLock ?? { name: active, details: setSheetFor(active, storyKey) };
-    return `${prompt}. ${lockClause(lock.name, lock.details)}`;
+    return `${withGroup}. ${lockClause(lock.name, lock.details)}`;
   });
 }
 
@@ -1457,9 +1509,7 @@ export function locationLock(prompt: string, bible?: string, continuity?: string
 
 /** Characters explicitly named in script text or a written prompt. */
 function namedBibleEntries(text: string, bible?: string): { name: string; traits: string }[] {
-  if (!bible) return [];
-  const folded = text.toLocaleLowerCase();
-  return parseBible(bible).filter((entry) => folded.includes(entry.name.toLocaleLowerCase()));
+  return visibleBibleEntries(text, bible);
 }
 
 /** True when a line continues a previously established person's action. */
@@ -1669,7 +1719,9 @@ export function characterLock(prompt: string, bible?: string): string {
   // into any panel containing "he"/"she" — including panels about soldiers,
   // crowds and strangers — which is exactly how narration lines turned into
   // generic "main couple standing somewhere" pictures. No name, no lock.
-  const matched = entries.filter((e) => new RegExp(`\\b${escapeRe(e.name)}\\b`, "i").test(prompt));
+  const matched = entries.filter(
+    (e) => new RegExp(`\\b${escapeRe(e.name)}\\b`, "i").test(prompt) && !isAbsentMention(prompt, e.name),
+  );
   if (matched.length === 0) return "";
 
   // The lock is the single strongest consistency tool we have: it repeats each
@@ -1751,8 +1803,7 @@ export function hasPeople(prompt: string, bible?: string): boolean {
 
   // 1. A character from the consistency sheet is named -> people are in frame.
   if (
-    bible &&
-    parseBible(bible).some((e) => new RegExp(`\\b${escapeRe(e.name)}\\b`, "i").test(prompt))
+    bible && visibleBibleEntries(prompt, bible).length > 0
   )
     return true;
 
@@ -1893,15 +1944,13 @@ const SINGLE_FRAME_GUARD =
  * sheets and isolated portraits — the prompt read more like a character sheet
  * than a scene. Now every character is described exactly once, briefly.
  */
-function identityBrief(prompt: string, bible?: string): string {
+function identityBrief(prompt: string, bible?: string, continuingGroup = false): string {
   if (!bible) return "";
   // "Sora's room" is a place name, not a person in the picture. Counting it as
   // one put an extra character in the headcount and the renderer duly drew a
   // second person who is not in the scene.
   const present = prompt.replace(/\b([A-Za-z]+)(\s*\([^)]*\))?'s\b/g, "the");
-  const matched = parseBible(bible).filter((entry) =>
-    new RegExp(`\\b${escapeRe(entry.name)}\\b`, "i").test(present),
-  );
+  const matched = visibleBibleEntries(present, bible);
   if (matched.length === 0) return "";
   const shown = matched.slice(0, 3);
   const folded = prompt.toLocaleLowerCase();
@@ -1920,9 +1969,10 @@ function identityBrief(prompt: string, bible?: string): string {
     return already >= 2 ? entry.name : `${entry.name} is ${clip(traits, 95)}`;
   });
   // An explicit headcount is what stopped the renderer inventing extra copies.
-  const count =
-    shown.length === 1 ? "exactly one person" : `exactly ${["", "one", "two", "three"][shown.length]} people`;
-  return `${count} in this frame: ${briefs.join("; ")}`;
+  const count = shown.length === 1 ? "one focal person" : `${["", "one", "two", "three"][shown.length]} focal people`;
+  return continuingGroup
+    ? `${count}: ${briefs.join("; ")}; the established recurring group remains visible behind this action`
+    : `exactly ${count} in this frame: ${briefs.join("; ")}`;
 }
 
 /**
@@ -1977,9 +2027,14 @@ export function composeImagePrompt(
   // trimming below would have thrown it away — which is exactly why panels of
   // one continuing scene kept coming back in a different room. Lift it out
   // first and re-attach it as reserved, never-trimmed text.
-  const lockSplit = prompt.search(/LOCATION LOCK\b/i);
-  const carriedLock = lockSplit >= 0 ? prompt.slice(lockSplit).trim().replace(/^\W+/, "") : "";
-  const promptBody = lockSplit >= 0 ? prompt.slice(0, lockSplit).replace(/[\s,.;-]+$/, "") : prompt;
+  const locationMatch = prompt.match(/LOCATION LOCK\b[\s\S]*?(?=GROUP LOCK\b|$)/i);
+  const groupMatch = prompt.match(/GROUP LOCK\b[\s\S]*?(?=LOCATION LOCK\b|$)/i);
+  const carriedLock = locationMatch?.[0].trim().replace(/^\W+/, "") ?? "";
+  const carriedGroup = groupMatch?.[0].trim().replace(/^\W+/, "") ?? "";
+  const promptBody = prompt
+    .replace(/LOCATION LOCK\b[\s\S]*?(?=GROUP LOCK\b|$)/gi, "")
+    .replace(/GROUP LOCK\b[\s\S]*?(?=LOCATION LOCK\b|$)/gi, "")
+    .replace(/[\s,.;-]+$/, "");
   const clean = stripPromptMeta(dedupeWords(promptBody));
 
   const withCast = enforceLineCast(clean, line, bible);
@@ -2024,11 +2079,14 @@ export function composeImagePrompt(
   const sceneText = `${beat.lead}. ${restText}`;
   // Exactly ONE identity description per character, and only when someone is
   // actually in frame. No second appearance-lock paragraph.
-  const identity = peopled ? clip(identityBrief(sceneText, bible), LOCK_BUDGET) : "";
+  const identity = peopled
+    ? clip(identityBrief(sceneText, bible, Boolean(carriedGroup)), LOCK_BUDGET)
+    : "";
   // The set sheet that came with the written prompt wins: it is the one shared
   // by every other panel of the same scene. Only a panel that arrived without
   // one derives its own (same deterministic sheet, so it still matches).
   const setLock = clip(carriedLock || locationLock(sceneText, bible, continuity), 380);
+  const groupLock = clip(carriedGroup, 460);
 
 
   // The place owns the very first words. A close-up line ("Close-up of Yuki
@@ -2062,7 +2120,7 @@ export function composeImagePrompt(
   // The set sheet and the fixed look are BOTH reserved: neither may ever be
   // trimmed away, because a trimmed set sheet is a redrawn room and a trimmed
   // look is a panel in a different art style from its neighbours.
-  const tail = `${setLock ? `${setLock}. ` : ""}${STYLE_TAIL}. ${SINGLE_FRAME_GUARD}`;
+  const tail = `${groupLock ? `${groupLock}. ` : ""}${setLock ? `${setLock}. ` : ""}${STYLE_TAIL}. ${SINGLE_FRAME_GUARD}`;
   const scene = clip(
     parts
       .join(". ")
