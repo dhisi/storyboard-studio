@@ -1085,12 +1085,13 @@ function groupLockFor(prompts: string[], index: number, bible?: string): string 
   }
   const people = [...roster.values()].slice(0, 8);
   if (people.length < 2) return "";
-  const brief = people
-    .map((entry) => `${entry.name} (${clip(dedupeWords(entry.traits.replace(/\.$/, "")), 58)})`)
-    .join("; ");
+  // Keep the whole roster inside the image model's prompt budget. Detailed
+  // traits are attached to the focal people by identityBrief; the group lock's
+  // job is to stop the room's surrounding cast being replaced between panels.
+  const names = people.map((entry) => entry.name).join(", ");
   return (
-    `GROUP LOCK — the same recurring group remains naturally distributed through this continuing scene: ${brief}. ` +
-    `Keep these exact identities and outfits; foreground only the people performing this moment while the others remain recognisable in the background`
+    `GROUP LOCK — the same recurring people remain in this continuing scene: ${names}. ` +
+    `Keep these exact identities and outfits; foreground the people acting now and keep the others recognisable in the background`
   );
 }
 
