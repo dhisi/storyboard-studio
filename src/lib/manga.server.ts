@@ -17,9 +17,11 @@ const IMAGE_REQUEST_TIMEOUT_MS = 1_800_000;
  */
 export const STYLE =
   "FIXED VISUAL STYLE: one clean modern vertical-webtoon story illustration in a single rectangular frame, " +
-  "crisp confident line art, smooth cel shading, natural human proportions, expressive readable faces and dynamic poses, " +
-  "soft light colours with restrained saturation, pale blue skies, gentle warm skin tones, limited accent colours, " +
-  "subtle soft shadows, clean surfaces and a detailed story-specific environment, polished Korean webcomic finish";
+  "thin crisp line art, simple flat cel shading, natural human proportions, calm readable faces, " +
+  "light muted low-saturation palette, soft pale washed-out colours, plenty of white and pale grey, " +
+  "gentle daylight, very light soft shadows, plain uncluttered surfaces and a simple story-specific environment, " +
+  "restrained understated finish, never vivid, never neon, never heavily saturated";
+
 
 
 /**
