@@ -343,15 +343,15 @@ const PROMPT_SYSTEM =
   "the earlier script lines so the same ability always looks the same; never give a character a power the script did " +
   "not give them. Also describe the battlefield itself in full — terrain, weather, sky, surrounding structures, " +
   "onlookers if the line has them — so the fight reads as happening in a real place at that exact timestamp.\n" +
-  "- MAGICAL WORLD SETTINGS (critical): this story takes place in a magical fantasy world, so EVERY environment — a " +
-  "classroom, school, training ground, forest, field, road, village, town, city, house, temple, market or arena — " +
-  "must be described as a place inside that magical world, never as a plain modern everyday location. Give each " +
-  "setting 2-3 concrete magical-world features the script does not forbid: floating lanterns or drifting arcane " +
-  "sigils, glowing runes and enchanted objects, crystalline or otherworldly plants, fantasy architecture such as " +
-  "arched stonework, towering spires or carved totems, light motes in the air, an unusual sky (twin moons, " +
-  "aurora-tinted clouds, distant floating islands). Keep the script's location type and era recognisable — a " +
-  "classroom stays a classroom, a village stays a village — but they are the classroom and village of a magical " +
-  "world, with those fantasy features drawn in foreground, midground and background.\n" +
+  "- SETTINGS ARE FAITHFUL AND REPEATED (critical): describe each place exactly as the script has it, plainly and " +
+  "simply, with no invented spectacle. Add only fantasy or magical features the script itself establishes. The FIRST " +
+  "time a place appears, fix 4-6 concrete physical facts about it (wall and floor material and colour, one or two " +
+  "windows or doors and where they are, 2-3 pieces of fixed furniture or landmarks, and the direction the light comes " +
+  "from). For EVERY later line that stays in that same place, repeat those same physical facts in the same words — the " +
+  "place must read as one single unchanged room or location across all its panels, with only pose, expression and " +
+  "camera angle changing. Never redesign, re-furnish, rescale or restyle an established place, and never swap it for a " +
+  "grander version of itself.\n" +
+
   "- Exactly one scene, one moment, one instance of each character. Never ask for multiple panels, insets or collages.\n" +
   "- NO-CHARACTER LINES (critical): if the line describes only a place, an object, the sky, weather or a phenomenon and " +
   "involves no person, the prompt MUST be a pure environment shot with NOBODY in it. Start it with 'Empty environment " +
