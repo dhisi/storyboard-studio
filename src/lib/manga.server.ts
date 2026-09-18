@@ -2112,7 +2112,8 @@ export async function generateImage(
             num_steps: 8,
 
             // a fresh seed each attempt, so a blank frame is never re-rolled identically
-            seed: seed + attempt * 977,
+            seed: anchored + attempt * 977,
+
             width: 1344,
             height: 768,
           }),
