@@ -1048,7 +1048,7 @@ function isAbsentMention(text: string, name: string): boolean {
   const escaped = escapeRe(name);
   return new RegExp(
     `(?:${escaped}[^.!?]{0,24}(?:is |has |had )?(?:missing|absent|gone|vanished|disappeared)|` +
-      `(?:missing|absent|gone|vanished|disappeared)[^.!?]{0,24}${escaped}|` +
+      `(?:missing|absent)\s+${escaped}|` +
       `empty (?:place|floor|space)[^.!?]{0,24}(?:where )?${escaped})`,
     "i",
   ).test(text);
