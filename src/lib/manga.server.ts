@@ -1070,11 +1070,15 @@ function groupLockFor(prompts: string[], index: number, bible?: string): string 
   const roster = new Map<string, { name: string; traits: string }>();
   const from = Math.max(0, index - 3);
   const to = Math.min(prompts.length - 1, index + 6);
+  const neighbourhood = prompts.slice(from, to + 1).join(" ");
   for (let i = from; i <= to; i++) {
     const candidate = prompts[i] ?? "";
     const candidatePlace = detectSetting(candidate);
     if (currentPlace && candidatePlace && candidatePlace !== currentPlace) continue;
     for (const entry of visibleBibleEntries(candidate, bible)) {
+      // If any nearby beat establishes that this person vanished or is absent,
+      // discussion and searching in later beats must not put them back on set.
+      if (isAbsentMention(neighbourhood, entry.name)) continue;
       roster.set(entry.name.toLocaleLowerCase(), entry);
     }
   }
