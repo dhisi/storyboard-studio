@@ -1976,7 +1976,11 @@ export function composeImagePrompt(
   // Exactly ONE identity description per character, and only when someone is
   // actually in frame. No second appearance-lock paragraph.
   const identity = peopled ? clip(identityBrief(sceneText, bible), LOCK_BUDGET) : "";
-  const setLock = locationLock(sceneText, bible, continuity);
+  // The set sheet that came with the written prompt wins: it is the one shared
+  // by every other panel of the same scene. Only a panel that arrived without
+  // one derives its own (same deterministic sheet, so it still matches).
+  const setLock = clip(carriedLock || locationLock(sceneText, bible, continuity), 380);
+
 
   // The place owns the very first words. A close-up line ("Close-up of Yuki
   // shouting") used to open the prompt with a face and nothing else, and the
