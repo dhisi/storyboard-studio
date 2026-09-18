@@ -1748,7 +1748,7 @@ export function hasPeople(prompt: string, bible?: string): boolean {
 // thousand characters: a 1900-character prompt rendered a pretty picture of
 // the WRONG moment, which is what the Fix/Reroll buttons were compensating
 // for. Short and dense beats long and complete.
-const IMAGE_PROMPT_BUDGET = 1150;
+const IMAGE_PROMPT_BUDGET = 1500;
 // Flux CLIP gives the first ~300 characters the strongest influence. Keep the
 // exact action inside that window rather than allowing decorative detail to
 // displace it.
@@ -1800,7 +1800,8 @@ function clip(s: string, max: number): string {
  * without ever naming faces or eyes as things to draw.
  */
 const STYLE_LEAD =
-  "one clean modern webtoon story illustration showing";
+  "one simple soft muted light-coloured webtoon story illustration showing";
+
 
 
 /**
