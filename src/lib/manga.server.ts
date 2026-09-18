@@ -774,7 +774,7 @@ export async function writePrompts(
   console.log(
     `[prompts] DONE lines ${from}-${to} in ${Date.now() - t0}ms: ${built.length - empties}/${count} written, ${empties} empty`,
   );
-  return chainContinuity(built, all, wanted);
+  return chainContinuity(built, all, wanted, bible);
 }
 
 
