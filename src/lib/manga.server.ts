@@ -1398,13 +1398,14 @@ function matchingPlace(text: string, bible?: string): PlaceLock | null {
 export function locationLock(prompt: string, bible?: string, continuity?: string): string {
   const combined = `${prompt} ${continuity ?? ""}`;
   const place = matchingPlace(combined, bible);
-  if (place) {
-    return `LOCATION LOCK — ${place.name}: ${place.details}. Preserve this exact architecture, room layout, materials, colours, fixed furniture, doors, windows, landmarks and light direction in every continuing image`;
-  }
+  if (place) return lockClause(place.name, place.details);
   const setting = detectSetting(combined);
   if (!setting) return "";
-  return `LOCATION LOCK — same ${setting}: preserve the exact architecture, layout, wall and floor colours, doors, windows, fixed furniture, landmarks and light direction established in the previous image`;
+  // Same deterministic sheet the prompt chain uses, so a panel composed on its
+  // own (a Fix or a Reroll) lands in exactly the same room as its neighbours.
+  return lockClause(setting, setSheetFor(setting, (bible ?? "").slice(0, 400)));
 }
+
 
 /** Characters explicitly named in script text or a written prompt. */
 function namedBibleEntries(text: string, bible?: string): { name: string; traits: string }[] {
