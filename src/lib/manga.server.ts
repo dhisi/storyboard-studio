@@ -888,54 +888,155 @@ const PLACE_CUES: RegExp = new RegExp(
   "i",
 );
 
+/* ------------------------------------------------------------------ */
+/* Canonical set sheets — the fix for "same hall, ten different halls" */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Why this exists.
+ *
+ * The renderer has no memory: telling it "keep the same hall" carries no
+ * information, so it invented a brand new hall for every panel of the same
+ * scene. Continuity only survives when the SAME concrete physical description
+ * of the place is repeated word for word in every prompt of that scene.
+ *
+ * The sheet is derived DETERMINISTICALLY from the place word plus the story's
+ * own character sheet, so any panel, in any batch, on any server instance,
+ * computes the identical text without needing shared memory.
+ */
+function stableHash(value: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    h ^= value.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return Math.abs(h);
+}
+
+function pick<T>(list: readonly T[], seed: number, salt: number): T {
+  return list[(seed + salt * 7919) % list.length] as T;
+}
+
+const OUTDOOR_WORDS = new Set([
+  "rooftop", "terrace", "balcony", "courtyard", "veranda", "street", "road", "alley", "village",
+  "town", "city", "market", "bazaar", "jungle", "forest", "woods", "field", "farm", "garden",
+  "park", "mountain", "valley", "hill", "desert", "river", "riverbank", "lake", "beach", "sea",
+  "graveyard", "cremation ground", "ruins", "well", "bus stop", "railway station", "airport",
+]);
+
+const INDOOR_SHEET = {
+  shell: [
+    "pale cream plastered walls, grey stone floor, one tall arched window on the left",
+    "whitewashed brick walls, worn light-wood floor, two square windows on the right wall",
+    "soft beige panelled walls, pale tiled floor, wide doorway at the far end",
+    "light grey stone walls, dull red brick floor, narrow window high on the back wall",
+  ],
+  fixtures: [
+    "a long dark wooden table, four plain chairs, a low bench against the back wall",
+    "a wide wooden desk, a tall shelf of books, a single hanging lamp",
+    "two long benches, a heavy closed door with iron hinges, a plain cupboard",
+    "a low table, a rolled mat on the floor, a framed picture on the wall",
+  ],
+  light: [
+    "even pale daylight entering from the left, very soft shadows",
+    "soft overhead daylight, faint shadows pooling under the furniture",
+    "gentle diffused light from the window on the right, muted shadows",
+    "calm flat daylight filling the room, barely any shadow",
+  ],
+} as const;
+
+const OUTDOOR_SHEET = {
+  shell: [
+    "pale hazy sky, low sandy ground, a line of thin trees along the left edge",
+    "soft overcast sky, dusty grey path underfoot, low stone wall running along the right",
+    "washed pale blue sky, dry grass ground, distant low hills on the horizon",
+    "light misty sky, packed earth ground, a row of plain low buildings behind",
+  ],
+  fixtures: [
+    "a leaning wooden post, a shallow ditch, scattered small rocks",
+    "a single broad tree, a worn bench, a narrow footpath",
+    "a low stone platform, a cart wheel resting on the ground, sparse bushes",
+    "a wooden fence, a clay water pot, tall dry weeds at the edge",
+  ],
+  light: [
+    "flat pale daylight from above, very soft shadows on the ground",
+    "gentle diffused daylight, faint long shadows to the right",
+    "soft even light with a hazy horizon, muted shadows",
+    "calm bright but colourless daylight, minimal shadow",
+  ],
+} as const;
+
+/**
+ * The fixed, repeated physical description of one place. Identical for every
+ * panel that stays in that place, because it depends only on the place word and
+ * the story key.
+ */
+export function setSheetFor(place: string, storyKey = ""): string {
+  const key = place.trim().toLowerCase();
+  const seed = stableHash(`${key}|${storyKey}`);
+  const book = OUTDOOR_WORDS.has(key) ? OUTDOOR_SHEET : INDOOR_SHEET;
+  return [
+    pick(book.shell, seed, 1),
+    pick(book.fixtures, seed, 2),
+    pick(book.light, seed, 3),
+  ].join(", ");
+}
+
+/** One lock clause, written the same way everywhere. */
+function lockClause(name: string, details: string): string {
+  return (
+    `LOCATION LOCK — ${name}: ${details}. ` +
+    `This is the same single physical place in every panel of this scene: identical architecture, ` +
+    `identical layout, identical materials and colours, identical fixed furniture and landmarks, identical light direction`
+  );
+}
+
 /**
  * Panel-to-panel setting continuity.
  *
- * The writing model often re-imagines the backdrop for narration lines that do
- * not restate where the scene is, which made consecutive panels jump house →
- * jungle → house. A panel may only move to a new location when its OWN script
- * line names a place (or the prompt is the first of the run). Otherwise the
- * established location is restated in the prompt so the picture stays in it.
+ * A panel may only move to a new location when its OWN script line names a
+ * place (or it is the first of the run). Otherwise the established location is
+ * restated — with its full canonical set sheet — so the picture stays in it.
  */
 export function chainContinuity(
   prompts: string[],
   all?: Segment[],
   wanted?: number[],
+  bible?: string,
 ): string[] {
   if (!all || !wanted || wanted.length !== prompts.length) return prompts;
+  const storyKey = (bible ?? "").slice(0, 400);
   let active: string | null = null;
   let activeLock: PlaceLock | null = null;
   return prompts.map((prompt, i) => {
     if (!prompt.trim()) return prompt;
     const segment = all[(wanted[i] as number) - 1];
     const here = detectSetting(prompt);
-    const place = matchingPlace(`${segment?.text ?? ""} ${prompt}`);
+    // The character sheet's own fixed places win, and they are matched against
+    // BOTH the script line and the written prompt.
+    const place = matchingPlace(`${segment?.text ?? ""} ${prompt}`, bible);
     const sourceChangesPlace = segment ? PLACE_CUES.test(segment.text) : false;
     PLACE_CUES.lastIndex = 0;
     if (place && (active === null || sourceChangesPlace)) {
       active = detectSetting(`${place.name} ${place.details}`) ?? place.name;
       activeLock = place;
-      return `${prompt}. LOCATION LOCK — ${place.name}: ${place.details}. Keep this exact set unchanged in continuing panels`;
+      return `${prompt}. ${lockClause(place.name, place.details)}`;
     }
     if (here && (active === null || sourceChangesPlace)) {
-      // The writer named a place for THIS timestamp. That place is the script's
-      // own, so it is never overwritten with an earlier panel's location — the
-      // old rewrite silently moved whole stretches of the story into the first
-      // panel's room whenever the Hindi line's place word was not in the cue
-      // list, which made prompts read as a different scene than the script.
+      // The writer named a place for THIS timestamp; it is never overwritten
+      // with an earlier panel's location.
       active = here;
-      activeLock = null;
-      return `${prompt}. LOCATION LOCK — ${here}: keep one stable layout, architecture, materials, colours, fixed furniture, landmarks and light direction for this continuing scene`;
+      activeLock = { name: here, details: setSheetFor(here, storyKey) };
+      return `${prompt}. ${lockClause(activeLock.name, activeLock.details)}`;
     }
     if (!active) return prompt;
-    // Only a prompt with NO place of its own inherits the running location, and
-    // it is described as scenery, never as an instruction.
-    const lock = activeLock
-      ? `${activeLock.name}: ${activeLock.details}`
-      : active;
-    return `${prompt}. LOCATION LOCK — same ${lock} as the previous panel; preserve the identical architecture, room layout, materials, colours, fixed furniture, doors, windows, landmarks and light direction`;
+    // A prompt with no place of its own inherits the running location, restated
+    // with the very same concrete sheet as the panel that established it.
+    const lock = activeLock ?? { name: active, details: setSheetFor(active, storyKey) };
+    return `${prompt}. ${lockClause(lock.name, lock.details)}`;
   });
 }
+
 
 
 
