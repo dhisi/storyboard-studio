@@ -1713,9 +1713,11 @@ const STYLE_LEAD =
  * being used for.
  */
 const STYLE_TAIL =
-  "polished modern Korean webcomic artwork, crisp clean contour lines, smooth simple cel shading, natural anatomy, " +
-  "soft light colours with restrained saturation, pale blues and gentle warm skin tones, subtle shadows, clean highlights, " +
-  "detailed but uncluttered background, identical visual style across the sequence";
+  "simple modern webcomic artwork, thin clean contour lines, flat simple cel shading, natural anatomy, " +
+  "light muted washed-out palette, low saturation, pale soft colours, lots of white and pale grey, gentle even daylight, " +
+  "very light shadows, plain uncluttered background, calm understated look, never vivid or neon, " +
+  "identical visual style across the sequence";
+
 
 
 /**
